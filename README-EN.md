@@ -1,81 +1,28 @@
 # otus-nfs
 
-## Введение
-
-Выполнение действий приведенных в данной методичке позволит познакомиться с настройкой клиента и сервера сетевой файловой системы NFS. Так же вы научитесь настраивать фаерволл для корректного функционирования NFS сервера и клиента.
-
-Для выполнения потребуется следующее ПО:
-- *VirtualBox* - среда виртуализации, позволяет создавать и выполнять виртуальные машины;
-- *Vagrant* - ПО для создания и конфигурирования виртуальной среды. В данном случае в качестве среды виртуализации используется _VirtualBox_;
-- *Git* - система контроля версий
-
-## Документация по теме
-
-- Документация http://wiki.linux-nfs.org/wiki/index.php/Main_Page
-- Неплохая wiki от gentoo linux =) https://wiki.gentoo.org/wiki/Nfs-utils
+- Documentation http://wiki.linux-nfs.org/wiki/index.php/Main_Page
+- Nice gentoo wiki page =) https://wiki.gentoo.org/wiki/Nfs-utils
 - HOWTO http://nfs.sourceforge.net/nfs-howto/ar01s03.html
-- Multi-machine Vagrantfile [documentation](https://www.vagrantup.com/docs/multi-machine)
 
-## Установка необходимого ПО
+## Vagrantfile
 
-### Vagrant
+Multi-machine Vagrantfile [documentation](https://www.vagrantup.com/docs/multi-machine)
 
-Установочные пакеты Vagrant доступны по следующей ссылке: https://www.vagrantup.com/downloads.html
-
-Установка Vagrant описана в документации: https://learn.hashicorp.com/tutorials/vagrant/getting-started-install
-
-Например, для установки vagrant версии 2.2.13 на debian-based дистрибутив, нужно выполнить следующие действия:
-```shell
-curl -O https://releases.hashicorp.com/vagrant/2.2.13/vagrant_2.2.13_x86_64.deb && \
-sudo dpkg -i vagrant_2.2.13_x86_64.deb
-```
-
-После успешного окончания, vagrant будет установлен.
-
-### VirtualBox
-
-Подробнее об установке VirtualBox можно узнать из официальной документации: https://www.virtualbox.org/manual/UserManual.html#installation
-
-Для установки VirtualBox из репозитория на debian-based дистрибутиве, нужно выполнить следующие действия:
-```shell
-apt install virtualbox
-```
-
-После успешного окончания, virtualbox будет установлен.
-
-## Запуск тестового окружения
-
-Для запуска тестового окружения необходимо установить необходимые приложения, описанные выше. Далее склонировать себе данный репозиторий:
-```shell
-git clone https://gitlab.com/vsyscoder/otus-nfs.git
-```
-
-Затем перейти в директорию с проектом и выполнить `vagrant up`
-```shell
-cd otus-nfs
-vagrant up
-```
-
-После успешного завершения у вас будут подняты 2 виртуальных машины:
+There are two VMs described:
 - `nfs-server` - 192.168.10.10
 - `nfs-client` - 192.168.10.11
 
-Содержимое [Vagrantfile](./Vagrantfile)
+Content of the [Vagrantfile](./Vagrantfile)
 
-## Настройка сервера
+## Server
 
-Для подключения к серверу необходимо выполнить
-```shell
-vagrant ssh nfs-server
-```
+### Prepare
 
-### Для информации
-
-Модули ядра, относящиеся к NFS
+Check nfs-related kernel modules
 ```shell
 cat /boot/config-$(uname -r) | grep NFS
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -118,11 +65,11 @@ CONFIG_NFS_COMMON=y
 </details>
 
 
-Просмотр информации о пакете `nfs-utils`
+Get info about `nfs-utils` package
 ```shell
 yum info nfs-utils
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -158,29 +105,29 @@ Loading mirror speeds from cached hostfile
 </details>
 
 
-### Установка необходимых пакетов
+### Install
 
-Установка пакетов необходимых для функционирования сервера
+Install server packages
 ```shell
 sudo yum install -y nfs-utils
 ```
-[Пример вывода](./logs/nfs-install.log)
+[output](./logs/nfs-install.log)
 
-Описание сервисов NFS
+About NFS services
 
 - `rpcbind` universal addresses to RPC program number mapper
 - `nfs-server` NFS server process
 - `rpc-statd` NFS status monitor for NFSv2/3 locking
 - `nfs-idmapd` NFSv4 ID-name mapping service
 
-Включение автозапуска необходимых сервисов
+Enable services for NFS server
 ```shell
 sudo systemctl enable rpcbind
 sudo systemctl enable nfs-server
 sudo systemctl enable rpc-statd
 sudo systemctl enable nfs-idmapd
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -189,7 +136,7 @@ Created symlink from /etc/systemd/system/multi-user.target.wants/nfs-server.serv
 </p>
 </details>
 
-Запуск сервисов
+Run serivces
 ```shell
 sudo systemctl start rpcbind
 sudo systemctl start nfs-server
@@ -197,11 +144,11 @@ sudo systemctl start rpc-statd
 sudo systemctl start nfs-idmapd
 ```
 
-Получение информации о запущенных сервисах и используемых портах
+Rpcinfo
 ```shell
 rpcinfo 
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -238,35 +185,31 @@ rpcinfo
 </details>
 
 
-### Экспорт файловой системы NFS
+### Export FS
 
-Создать директорию для экспорта. Установить необходимые разрешения (`0777`).
+Create a shared directory for exporting. Add correct permissions (`0777`).
 ```shell
 sudo mkdir -p /export/shared
 sudo chmod 0777 /export/shared
 ```
 
-Описание экспортируемой директории в конфигурационном файле `/etc/etcports`
+Configure exports
 ```shell
 cat << EOF | sudo tee /etc/exports
 /export/shared  192.168.10.0/24(rw,async)
 EOF
 ```
-Здесь:
-- `/export/shared` - экспортируемая директория
-- `192.168.10.0/24` - подсеть с которой разрешено монтирование экспортируемой ФС
-- `(rw,async)` - опции экспортируемой ФС, подробнее можно почитать в `man exports`
 
-Применение изменений конфигурации
+Apply configuration changes
 > If you come back and change your /etc/exports file, the changes you make may not take effect immediately. You should run the command `exportfs -ra` to force `nfsd` to re-read the `/etc/exports` file. If you can't find the exportfs command, then you can `kill nfsd` with the `-HUP` flag (see the man pages for kill for details).
 ```
 sudo exportfs -ra
 ```
-где:
+where:
 - `-a` Export or unexport all directories
 - `-r` Reexport all directories, synchronizing `/var/lib/nfs/etab` with `/etc/exports` and files under `/etc/exports.d`.  This  option  removes  entries  in /var/lib/nfs/etab which have been deleted from `/etc/exports` or files under `/etc/exports.d`, and removes any entries from the kernel export table which are no longer valid.
 
-Проверка экспортированных ФС
+Check exported FSs with actual options
 ```shell
 cat /var/lib/nfs/etab
 ```
@@ -275,13 +218,13 @@ cat /var/lib/nfs/etab
 ```
 
 
-### Настройка firewalld на сервере
+### Configure firewalld on server
 
-Проверка открытых портов
+Check opened ports
 ```shell
 sudo ss -tunlp
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -307,11 +250,11 @@ tcp    LISTEN     0      64                 *:33279             *:*
 </details>
 
 
-Проверка портов, связанных с функционированием служб относящихся к NFS
+Check ports, used by nfs-related daemons
 ```shell
 rpcinfo -p
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -345,11 +288,11 @@ rpcinfo -p
 </p>
 </details>
 
-Получение предопределенных шаблонов сервисов
+Get predefined services list
 ```shell
 firewall-cmd --get-services
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -358,13 +301,11 @@ RH-Satellite-6 amanda-client amanda-k5-client amqp amqps apcupsd audit bacula ba
 </p>
 </details>
 
-Получение информации о шаблонах сервисов, относящихся к NFS
-
-Получение информации о сервисе `mountd`
+Get info about service mountd
 ```shell
 sudo firewall-cmd --info-service mountd
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -378,11 +319,11 @@ mountd
 </p>
 </details>
 
-Получение информации о сервисе `nfs`
+Get info about service mountd
 ```shell
 sudo firewall-cmd --info-service nfs
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -396,11 +337,11 @@ nfs
 </p>
 </details>
 
-Получение информации о сервисе `nfs3`
+Get info about service mountd
 ```shell
 sudo firewall-cmd --info-service nfs3
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -414,11 +355,11 @@ nfs3
 </p>
 </details>
 
-Получение информации о сервисе `rpc-bind`
+Get info about service mountd
 ```shell
 sudo firewall-cmd --info-service rpc-bind
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -433,7 +374,7 @@ rpc-bind
 </details>
 
 
-Включение и запуск firewalld
+Enable and start firewalld
 ```shell
 echo "Enable firewall"
 sudo systemctl enable firewalld
@@ -441,7 +382,7 @@ sudo systemctl start firewalld
 systemctl status firewalld
 ```
 
-Открытие необходимых портов посредством включения соответствующих сервисов в firewalld
+Enable services
 ```shell
 {
   sudo firewall-cmd --permanent --add-service=nfs3
@@ -451,7 +392,7 @@ systemctl status firewalld
   sudo firewall-cmd --list-all
 }
 ```
-<details><summary>Пример вывода</summary>
+<details><summary>output</summary>
 <p>
 
 ```log
@@ -477,25 +418,26 @@ public (active)
 </details>
 
 
-## Настройка NFS клиента
+## NFS client
 
-Для подключения к клиенту необходимо выполнить
+Login to `nfs-client`
 ```shell
 vagrant ssh nfs-client
 ```
 
-### Установка необходимых пакетов
 
-Установка `nfs-utils`
+### Install
+
+Install server packages
 ```shell
 sudo yum install -y nfs-utils
 ```
-[Пример вывода](./logs/nfs-install-cli.log)
+[output](./logs/nfs-install-cli.log)
 
 
-### Монтирование файловой системы NFS
+### Mount NFS share
 
-Попытка примонтировать без дополнительных опций
+Try to mount without args
 ```shell
 sudo mount 192.168.10.10:/export/shared /mnt
 mount | grep nfs
@@ -503,12 +445,12 @@ mount | grep nfs
 ```log
 192.168.10.10:/export/shared on /mnt type nfs4 (rw,relatime,vers=4.1,rsize=262144,wsize=262144,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=192.168.10.11,local_lock=none,addr=192.168.10.10)
 ```
-приводит к монтированию NFSv4
+It's NFSv4
 ```shell
 sudo umount /mnt
 ```
 
-Понтирование NFSv3 по UDP
+Mount with NFSv3 and UDP
 ```shell
 sudo mount.nfs -vv 192.168.10.10:/export/shared /mnt -o nfsvers=3,proto=udp,soft
 ```
@@ -524,7 +466,7 @@ sudo mount.nfs -vv 192.168.10.10:/export/shared /mnt -o nfsvers=3,proto=udp,soft
     nfs-client: mount.nfs: prog 100005, trying vers=3, prot=17
 ```
 
-Далее можно запустить небольшую проверку, залив файл размером 1Gb на примонтированную ФС
+Run a small test
 ```shell
 {
     dd if=/dev/zero of=/mnt/test1G.zero bs=1M count=1024
@@ -541,7 +483,7 @@ total 1095500
 -rw-rw-r--. 1 vagrant vagrant 1073741824 Jun  7 21:34 test1G.zero
 ```
 
-Включение и запуск firewalld (на клиенте дополнительной настройки не требуется)
+Enable and start firewalld
 ```shell
 {
   sudo systemctl enable firewalld
@@ -553,15 +495,14 @@ Created symlink from /etc/systemd/system/dbus-org.fedoraproject.FirewallD1.servi
 Created symlink from /etc/systemd/system/multi-user.target.wants/firewalld.service to /usr/lib/systemd/system/firewalld.service.
 ```
 
-Проверка со включенным фаерволлом
-
-Монтирование:
+Check with firewall enabled
+Mount
 ```shell
 sudo umount /mnt
 sudo mount.nfs -vv 192.168.10.10:/export/shared /mnt -o nfsvers=3,proto=udp,soft
 ```
 
-Создание файла размером 1Gb
+Test write
 ```shell
 {
     test -f /mnt/test1G.zero && rm -f /mnt/test1G.zero
@@ -578,7 +519,7 @@ total 1049052
 -rw-rw-r--. 1 vagrant vagrant 1073741824 Jun  7 22:01 test1G.zero
 ```
 
-Чтение файла
+Test read
 ```shell
 dd if=/mnt/test1G.zero of=/dev/null
 ```
@@ -588,4 +529,5 @@ dd if=/mnt/test1G.zero of=/dev/null
 1073741824 bytes (1.1 GB) copied, 2.38379 s, 450 MB/s
 ```
 
-Готово!
+Done!
+
